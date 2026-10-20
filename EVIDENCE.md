@@ -14,16 +14,17 @@ Python 3.11.15
 ```
 
 Runtime code uses the standard library only; `pytest 9.0.3` is the test runner
-and `PyYAML 6.0.3` is used only by the static CI/Duo config tests. The CI image
+and `PyYAML 6.0.3` is used only by the static CI/Duo config tests. The web layer
+adds `fastapi` and its `TestClient` (`httpx`) for the HTTP tests. The CI image
 is `alpine:3.20` with `git`, `python3`, `py3-pytest` and `py3-yaml` installed
 (see `.gitlab-ci.yml`).
 
 ## Test suite
 
 ```
-$ python3 -m pytest tests -q
-................................................                         [100%]
-48 passed in 0.28s
+$ python3 -m pytest -q -p no:warnings
+........................................................                 [100%]
+56 passed in 1.43s
 ```
 
 Static CI and Duo configuration tests alone:
@@ -53,7 +54,8 @@ no transport in offline mode, missing `GITLAB_DUO_TOKEN`, missing project id,
 workflow POST payload and auth header, nested `result` JSON parsing, missing
 recommendation, HTTP 401, unreachable, non-JSON, endpoint default), CLI (json/md
 output, live Duo error mapping, dry-run action preview, live without token,
-missing file), CI/Duo config (static checks above).
+missing file), web layer (index HTML, health, risky/clean scoring over HTTP,
+empty and unparsable diff rejection), CI/Duo config (static checks above).
 
 Required negative case (clean diff must score below 20) still passes:
 
@@ -165,6 +167,63 @@ $ python3 -c 'import yaml; d=yaml.safe_load(open(".gitlab/duo/flows/postcode-sen
 ['components', 'environment', 'flow', 'prompts', 'routers', 'version']
 entry: postcode_sentinel prompts: ['postcode_sentinel_review']
 ```
+
+## Web UI (FastAPI)
+
+The browser layer reuses the existing analyzer unchanged: `web/server.py` parses
+the pasted diff with `sentinel.diff_parser`, scores it with
+`sentinel.scoring.analyze_changeset` and renders the report with
+`sentinel.report.render_markdown`. No rule, weight or threshold was modified.
+
+Endpoints:
+
+| Method | Path | Behaviour |
+|---|---|---|
+| GET | `/` | serves `web/index.html` (dark UI, accent `#4c82d9`) |
+| GET | `/api/health` | `{"status":"ok","service":"postcode-sentinel-web","version":"0.1.0"}` |
+| POST | `/api/analyze` | body `{"diff":"..."}` → `score`, `level`, `findings`, `markdown`; empty or unparsable diff → `400` |
+
+```
+$ python3 -m pytest -q -p no:warnings tests/test_web.py
+........                                                                 [100%]
+8 passed in 1.26s
+```
+
+Measured response for `tests/fixtures/risky.diff`:
+
+```
+$ python3 -c "from fastapi.testclient import TestClient; from web.server import app; \
+  print(TestClient(app).post('/api/analyze', json={'diff': open('tests/fixtures/risky.diff').read()}).json()['score'])"
+100
+```
+
+```
+$ python3 -c "from fastapi.testclient import TestClient; from web.server import app; \
+  print(TestClient(app).post('/api/analyze', json={'diff': '   '}).status_code)"
+400
+```
+
+```
+$ python3 -c "from fastapi.testclient import TestClient; from web.server import app; \
+  print(TestClient(app).get('/api/health').json())"
+{'status': 'ok', 'service': 'postcode-sentinel-web', 'version': '0.1.0'}
+```
+
+Colour thresholds in the UI mirror `sentinel.scoring.LEVELS` (`critical` ≥75,
+`high` ≥55, `medium` ≥30, `low` <30; the engine names the third tier
+`moderate`, the UI labels it `medium`). The page shows the score, a threshold
+badge, a reasons table, the raw Markdown in `<details>`, and empty/loading/error
+states announced through `aria-live`; `prefers-reduced-motion` disables
+transitions and animations.
+
+Run it locally:
+
+```
+$ uvicorn web.server:app --host 127.0.0.1 --port 8000
+```
+
+Not verified: the UI was not opened in a real browser (no screenshot, no console
+check); only the `GET /` markup and the API contract are covered by tests.
 
 ## What was not run
 

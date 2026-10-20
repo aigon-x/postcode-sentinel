@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PostCode Sentinel — post-merge risk review</title>
+<meta name="description" content="Deterministic post-merge risk review for GitLab. Paste a diff, get a score with traceable reasons.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2305070a'/%3E%3Cpath d='M16 4l9 4v7c0 6-4 10-9 13-5-3-9-7-9-13V8z' fill='none' stroke='%234c82d9' stroke-width='2.5'/%3E%3Cpath d='M11 16l3.5 3.5L21 12' fill='none' stroke='%234c82d9' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#05070a; --panel:#12161c; --panel-2:#1a1f27; --line:#232a34;
+  --text:#e9ecf0; --muted:#8b96a5; --accent:#4c82d9; --accent-soft:rgba(76,130,217,.14);
+  --critical:#e0568c; --high:#f0b429; --medium:#4c82d9; --low:#3fbf8f; --radius:10px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--text); min-height:100vh;
+  font:15px/1.55 "Inter","Segoe UI",system-ui,-apple-system,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  background-image:radial-gradient(circle at 50% -20%,rgba(76,130,217,.10),transparent 60%);
+}
+.mono{font-family:ui-monospace,"JetBrains Mono","SFMono-Regular",Menlo,monospace}
+.wrap{max-width:1040px;margin:0 auto;padding:32px 20px 56px}
+header{display:flex;align-items:center;gap:14px;margin-bottom:8px}
+.brand{display:flex;flex-direction:column;gap:2px}
+h1{font-size:19px;letter-spacing:.2px;margin:0;font-weight:650}
+.sub{color:var(--muted);font-size:13px;margin:0}
+.tag{
+  margin-left:auto;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--accent);background:var(--accent-soft);border:1px solid rgba(76,130,217,.35);
+  padding:5px 9px;border-radius:999px;white-space:nowrap;
+}
+.panel{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:0 10px 30px rgba(0,0,0,.35);
+}
+.input-panel{padding:16px;margin-top:22px}
+label{display:block;font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
+textarea{
+  width:100%;min-height:220px;resize:vertical;background:#0b0f14;color:var(--text);
+  border:1px solid var(--line);border-radius:8px;padding:12px 14px;
+  font-family:ui-monospace,"JetBrains Mono",Menlo,monospace;font-size:13px;line-height:1.5;
+}
+textarea::placeholder{color:#5b6674}
+textarea:focus-visible,button:focus-visible,summary:focus-visible{
+  outline:2px solid var(--accent);outline-offset:2px;
+}
+.actions{display:flex;align-items:center;gap:12px;margin-top:14px;flex-wrap:wrap}
+button{
+  background:var(--accent);color:#fff;border:1px solid transparent;border-radius:8px;
+  padding:10px 20px;font-size:14px;font-weight:600;cursor:pointer;
+  transition:background 160ms ease,transform 120ms ease;
+}
+button:hover:not(:disabled){background:#5c90e4}
+button:active:not(:disabled){transform:translateY(1px)}
+button:disabled{opacity:.55;cursor:not-allowed}
+.hint{color:var(--muted);font-size:12.5px}
+.spinner{
+  width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.35);
+  border-top-color:#fff;display:none;animation:spin .7s linear infinite;
+}
+button[aria-busy="true"] .spinner{display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.result{margin-top:22px;padding:20px}
+.result-head{display:flex;align-items:flex-start;gap:22px;flex-wrap:wrap}
+.score-block{display:flex;align-items:baseline;gap:6px;min-width:180px}
+.score{
+  font-size:64px;line-height:1;font-weight:700;letter-spacing:-2px;
+  font-variant-numeric:tabular-nums;color:var(--muted);
+}
+.score.s-critical{color:var(--critical)}
+.score.s-high{color:var(--high)}
+.score.s-medium{color:var(--medium)}
+.score.s-low{color:var(--low)}
+.score-max{color:var(--muted);font-size:18px}
+.badge{
+  display:inline-block;margin-top:8px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  padding:5px 10px;border-radius:999px;border:1px solid var(--line);color:var(--muted);
+}
+.badge.b-critical{color:var(--critical);border-color:rgba(224,86,140,.45);background:rgba(224,86,140,.10)}
+.badge.b-high{color:var(--high);border-color:rgba(240,180,41,.45);background:rgba(240,180,41,.10)}
+.badge.b-medium{color:var(--medium);border-color:rgba(76,130,217,.45);background:rgba(76,130,217,.10)}
+.badge.b-low{color:var(--low);border-color:rgba(63,191,143,.45);background:rgba(63,191,143,.10)}
+.meta{display:grid;grid-template-columns:repeat(3,minmax(90px,1fr));gap:10px 18px;flex:1;min-width:240px}
+.meta div{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:9px 12px}
+.meta dt{color:var(--muted);font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin:0 0 2px}
+.meta dd{margin:0;font-size:15px;font-variant-numeric:tabular-nums}
+table{width:100%;border-collapse:collapse;margin-top:18px;font-size:13.5px}
+caption{text-align:left;color:var(--muted);font-size:12px;letter-spacing:.08em;text-transform:uppercase;padding-bottom:8px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase}
+tbody tr:hover{background:rgba(76,130,217,.06)}
+.sev{font-size:11px;text-transform:uppercase;letter-spacing:.1em;white-space:nowrap}
+.sev.critical{color:var(--critical)}
+.sev.high{color:var(--high)}
+.sev.medium{color:var(--medium)}
+.sev.low{color:var(--low)}
+td.file{color:#c7d0db;word-break:break-all;max-width:220px}
+details{margin-top:18px;border:1px solid var(--line);border-radius:8px;background:#0b0f14}
+summary{cursor:pointer;padding:11px 14px;color:var(--muted);font-size:13px;user-select:none}
+summary:hover{color:var(--text)}
+pre{margin:0;padding:0 14px 14px;overflow:auto;font-size:12.5px;line-height:1.5;color:#c7d0db}
+.state{margin-top:22px;padding:18px 20px;border:1px dashed var(--line);border-radius:var(--radius);color:var(--muted)}
+.state.error{border-style:solid;border-color:rgba(224,86,140,.45);color:#f3b7cb;background:rgba(224,86,140,.07)}
+.state strong{color:var(--text);display:block;margin-bottom:4px}
+[hidden]{display:none !important}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+footer{margin-top:28px;color:var(--muted);font-size:12px}
+footer a{color:var(--accent);text-decoration:none}
+@media (max-width:640px){
+  .wrap{padding:22px 14px 40px}
+  .score{font-size:52px}
+  .meta{grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
+  th:nth-child(2),td:nth-child(2){display:none}
+  .tag{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important}
+}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <div class="brand">
+      <h1>PostCode Sentinel</h1>
+      <p class="sub">Deterministic post-merge risk review — every point traceable to a reason.</p>
+    </div>
+    <span class="tag">GitLab Duo</span>
+  </header>
+
+  <section class="panel input-panel" aria-labelledby="diff-label">
+    <label id="diff-label" for="diff">Unified diff</label>
+    <textarea id="diff" spellcheck="false" autocapitalize="off" autocomplete="off"
+      placeholder="diff --git a/app/auth.py b/app/auth.py&#10;--- a/app/auth.py&#10;+++ b/app/auth.py&#10;@@ -1,3 +1,4 @@&#10;+API_KEY = &quot;AKIA...&quot;"
+      aria-describedby="diff-hint"></textarea>
+    <div class="actions">
+      <button id="analyze" type="button" aria-busy="false">
+        <span class="spinner" aria-hidden="true"></span>
+        <span id="analyze-label">Analyze</span>
+      </button>
+      <span id="diff-hint" class="hint">Scores are computed locally. Nothing leaves this page.</span>
+    </div>
+  </section>
+
+  <p id="status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
+
+  <section id="empty" class="state" aria-live="polite">
+    <strong>No diff analyzed yet.</strong>
+    Paste a diff above and press Analyze to see the risk score and the reasons behind it.
+  </section>
+
+  <section id="error" class="state error" role="alert" aria-live="assertive" hidden>
+    <strong>Analysis failed.</strong>
+    <span id="error-text"></span>
+  </section>
+
+  <section id="loading" class="state" aria-live="polite" hidden>
+    <strong>Analyzing…</strong>
+    Parsing hunks and running the deterministic rule engine.
+  </section>
+
+  <section id="result" class="panel result" aria-live="polite" aria-labelledby="result-title" hidden>
+    <h2 id="result-title" class="sr-only">Analysis result</h2>
+    <div class="result-head">
+      <div class="score-block">
+        <span id="score" class="score">0</span><span class="score-max">/100</span>
+        <span id="level-badge" class="badge">low</span>
+      </div>
+      <dl class="meta">
+        <div><dt>Files</dt><dd id="m-files">0</dd></div>
+        <div><dt>Added</dt><dd id="m-added" class="mono">+0</dd></div>
+        <div><dt>Removed</dt><dd id="m-removed" class="mono">-0</dd></div>
+      </dl>
+    </div>
+
+    <table id="reasons-table" aria-describedby="reasons-caption">
+      <caption id="reasons-caption">Reasons</caption>
+      <thead>
+        <tr><th scope="col">Severity</th><th scope="col">Rule</th><th scope="col">File</th><th scope="col" style="text-align:right">Weight</th><th scope="col">Reason</th></tr>
+      </thead>
+      <tbody id="reasons-body"></tbody>
+    </table>
+    <p id="no-findings" class="hint" hidden>No risk rules fired on this diff.</p>
+
+    <details>
+      <summary>Raw Markdown report</summary>
+      <pre id="markdown" class="mono"></pre>
+    </details>
+  </section>
+
+  <footer>
+    PostCode Sentinel · deterministic engine, no network calls · <a href="/api/health">health</a>
+  </footer>
+</main>
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var btn = $("analyze"), btnLabel = $("analyze-label"), ta = $("diff");
+  var empty = $("empty"), error = $("error"), errorText = $("error-text");
+  var loading = $("loading"), result = $("result"), status = $("status");
+  var BADGE_TEXT = { critical: "critical", high: "high", medium: "medium", low: "low" };
+
+  function levelClass(level) {
+    return level === "moderate" ? "medium" : (BADGE_TEXT[level] ? level : "medium");
+  }
+
+  function showOnly(el) {
+    [empty, error, loading, result].forEach(function (n) { n.hidden = n !== el; });
+  }
+
+  function setBusy(busy) {
+    btn.disabled = busy;
+    btn.setAttribute("aria-busy", busy ? "true" : "false");
+    btnLabel.textContent = busy ? "Analyzing…" : "Analyze";
+  }
+
+  function fail(message) {
+    errorText.textContent = message;
+    showOnly(error);
+    status.textContent = "Analysis failed: " + message;
+  }
+
+  function render(data) {
+    var cls = levelClass(data.level);
+    var score = $("score");
+    score.textContent = String(data.score);
+    score.className = "score s-" + cls;
+    var badge = $("level-badge");
+    badge.textContent = BADGE_TEXT[cls];
+    badge.className = "badge b-" + cls;
+    $("m-files").textContent = String(data.files_total);
+    $("m-added").textContent = "+" + data.lines_added;
+    $("m-removed").textContent = "-" + data.lines_removed;
+
+    var body = $("reasons-body");
+    body.textContent = "";
+    var findings = data.findings || [];
+    findings.forEach(function (f) {
+      var tr = document.createElement("tr");
+      [[f.severity, "sev " + f.severity], [f.rule, "mono"], [f.file, "file mono"],
+       [String(f.weight), "mono"], [f.reason, ""]].forEach(function (cell, i) {
+        var td = document.createElement("td");
+        td.className = cell[1];
+        td.textContent = cell[0];
+        if (i === 3) { td.style.textAlign = "right"; }
+        tr.appendChild(td);
+      });
+      body.appendChild(tr);
+    });
+    $("no-findings").hidden = findings.length > 0;
+    $("reasons-table").hidden = findings.length === 0;
+    $("markdown").textContent = data.markdown || "";
+    showOnly(result);
+    status.textContent = "Analysis complete. Risk score " + data.score + " of 100, level " + BADGE_TEXT[cls] + ".";
+  }
+
+  async function analyze() {
+    var diff = ta.value;
+    if (!diff.trim()) {
+      fail("Paste a unified diff first — the analyzer needs at least one file change.");
+      ta.focus();
+      return;
+    }
+    setBusy(true);
+    showOnly(loading);
+    status.textContent = "Analyzing diff…";
+    try {
+      var res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ diff: diff })
+      });
+      var payload = await res.json().catch(function () { return {}; });
+      if (!res.ok) {
+        fail(payload.detail || ("Server returned HTTP " + res.status + "."));
+        return;
+      }
+      render(payload);
+    } catch (err) {
+      fail("Could not reach the analyzer: " + (err && err.message ? err.message : "network error"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  btn.addEventListener("click", analyze);
+  ta.addEventListener("keydown", function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); analyze(); }
+  });
+})();
+</script>
+</body>
+</html>
+
