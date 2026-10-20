@@ -1,0 +1,95 @@
+diff --git a/app/settings.py b/app/settings.py
+index 4f1c2aa..9b0d31e 100644
+--- a/app/settings.py
++++ b/app/settings.py
+@@ -1,6 +1,8 @@
+ import os
+ 
+ DEBUG = os.environ.get("DEBUG", "0") == "1"
++AWS_ACCESS_KEY = "AKIAIOSFODNN7EXAMPLE"
++WEBHOOK_SECRET = "s3cr3t-webhook-value"
+ 
+ DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///local.db")
+ TIMEOUT_SECONDS = 30
+diff --git a/tests/test_billing.py b/tests/test_billing.py
+deleted file mode 100644
+index 3c9a1f2..0000000
+--- a/tests/test_billing.py
++++ /dev/null
+@@ -1,11 +0,0 @@
+-import pytest
+-
+-from app.billing import compute_total
+-
+-
+-def test_compute_total_rounds_up():
+-    assert compute_total([1.01, 2.02]) == 3.03
+-
+-def test_compute_total_rejects_empty():
+-    with pytest.raises(ValueError):
+-        compute_total([])
+diff --git a/migrations/0007_drop_orders_table.py b/migrations/0007_drop_orders_table.py
+new file mode 100644
+index 0000000..1d2e3f4
+--- /dev/null
++++ b/migrations/0007_drop_orders_table.py
+@@ -0,0 +1,9 @@
++from alembic import op
++
++
++def upgrade():
++    op.execute("DROP TABLE orders")
++
++
++def downgrade():
++    pass
+diff --git a/app/auth/tokens.py b/app/auth/tokens.py
+index 77aa10c..88bb20d 100644
+--- a/app/auth/tokens.py
++++ b/app/auth/tokens.py
+@@ -18,7 +18,8 @@ def validate_signature(token, key):
+     if not token:
+         return False
+-    verified = verify_signature(token, key, strict=True)
++    verified = verify_signature(token, key, verify=False)
++    # TODO: restore strict verification before the next release
+     return verified
+ 
+ 
+ def issue_token(user):
+diff --git a/app/billing.py b/app/billing.py
+index 1122a3b..4455c6d 100644
+--- a/app/billing.py
++++ b/app/billing.py
+@@ -1,9 +1,15 @@
+ from decimal import Decimal
+ 
+ 
+ def compute_total(items):
+-    return sum(Decimal(str(item)) for item in items)
++    total = Decimal("0")
++    for item in items:
++        if item < 0:
++            raise ValueError("negative item")
++        total += Decimal(str(item))
++    return total.quantize(Decimal("0.01"))
+ 
+ 
+ def refund_total(items):
+-    return compute_total(items)
++    total = compute_total(items)
++    return (total * Decimal("-1")).quantize(Decimal("0.01"))
+diff --git a/.gitlab-ci.yml b/.gitlab-ci.yml
+index 9ab8c7d..0bc9d8e 100644
+--- a/.gitlab-ci.yml
++++ b/.gitlab-ci.yml
+@@ -10,7 +10,10 @@ test:
+   script:
+     - pytest -q
+ 
++deploy:
++  script: ./deploy.sh --force
++
+ postcode-sentinel:
+   script:
+     - python3 -m sentinel review merged.diff --dry-run

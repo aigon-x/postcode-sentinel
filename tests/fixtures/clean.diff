@@ -1,0 +1,35 @@
+diff --git a/README.md b/README.md
+index 1a2b3c4..5d6e7f8 100644
+--- a/README.md
++++ b/README.md
+@@ -4,3 +4,5 @@
+ PostCode Sentinel reviews merged diffs.
+ 
++It runs in dry-run mode by default.
++
+ See `ARCHITECTURE.md` for details.
+diff --git a/app/utils.py b/app/utils.py
+index aa11bb2..cc33dd4 100644
+--- a/app/utils.py
++++ b/app/utils.py
+@@ -1,5 +1,5 @@
+ def slugify(value):
+-    return value.strip().lower().replace(" ", "-")
++    return value.strip().lower().replace(" ", "-").replace("_", "-")
+ 
+ 
+ def is_empty(value):
+diff --git a/tests/test_utils.py b/tests/test_utils.py
+index ee55ff6..0077889 100644
+--- a/tests/test_utils.py
++++ b/tests/test_utils.py
+@@ -1,5 +1,9 @@
+ from app.utils import slugify
+ 
+ 
+ def test_slugify_spaces():
+     assert slugify("Hello World") == "hello-world"
++
++
++def test_slugify_underscores():
++    assert slugify("hello_world") == "hello-world"
