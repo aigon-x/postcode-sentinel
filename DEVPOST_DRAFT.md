@@ -90,8 +90,10 @@ in the post-code phase: analysis, decisions, actions.
 
 ## Accomplishments
 
-- 66 unit tests, including the required negative case: a clean diff with a test
+- 74 unit tests, including the required negative case: a clean diff with a test
   update scores 0 (< 20), while the risky fixture scores 100 with eight findings.
+- The rule engine is measured: a seven-case labelled corpus scores it at precision 1.0 /
+  recall 1.0 per rule, with an ablation test that fails if the metric stops reacting.
 - Static tests parse `.gitlab-ci.yml` and the Duo flow and enforce the image's
   git installation, the MR/branch `rules:`, the diff ranges, the offline flags,
   and the Flow Registry v1 structure/restricted fields.

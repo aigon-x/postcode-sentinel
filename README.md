@@ -23,6 +23,7 @@ Run from the repository root (the directory containing `sentinel/`):
 
 ```bash
 python3 -m pytest tests -q
+python3 -m sentinel eval                      # labelled corpus: per-rule precision/recall
 python3 -m sentinel analyze tests/fixtures/risky.diff --offline --format json
 python3 -m sentinel analyze tests/fixtures/clean.diff --offline --format md
 python3 -m sentinel review tests/fixtures/risky.diff --offline --dry-run --mr-iid 7

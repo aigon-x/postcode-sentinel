@@ -23,8 +23,9 @@ is `alpine:3.20` with `git`, `python3`, `py3-pytest` and `py3-yaml` installed
 
 ```
 $ python3 -m pytest -q -p no:warnings
-........................................................                 [100%]
-56 passed in 1.43s
+........................................................................ [ 94%]
+....                                                                     [100%]
+74 passed in 1.02s
 ```
 
 Static CI and Duo configuration tests alone:
@@ -74,6 +75,26 @@ assert result.level == "low"
 ```
 
 Observed score for `tests/fixtures/clean.diff` is `0`.
+
+## Rule engine measured on a labelled corpus
+
+```
+$ python3 -m sentinel.eval
+cases=7 rules=7 macro_precision=1.0 macro_recall=1.0
+  auth-change            tp=1 fp=0 fn=0 precision=1.0 recall=1.0
+  ci-config-change       tp=1 fp=0 fn=0 precision=1.0 recall=1.0
+  debug-leftovers        tp=1 fp=0 fn=0 precision=1.0 recall=1.0
+  destructive-sql        tp=1 fp=0 fn=0 precision=1.0 recall=1.0
+  migration-change       tp=1 fp=0 fn=0 precision=1.0 recall=1.0
+  removed-tests          tp=1 fp=0 fn=0 precision=1.0 recall=1.0
+  secret-in-diff         tp=1 fp=0 fn=0 precision=1.0 recall=1.0
+OK
+```
+
+Seven labelled diffs — one per rule class plus a clean control — run through the same
+engine. Synthetic: it shows each rule fires on its showcase pattern and the control stays
+silent, not that the weights match a real repository. `tests/test_eval.py` keeps it as a regression test plus an ablation that
+removes `secret-in-diff`.
 
 ## Risky fixture — score and reasons (offline)
 
