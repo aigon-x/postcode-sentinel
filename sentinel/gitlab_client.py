@@ -14,6 +14,8 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 
+from .transport import check_url, redact
+
 
 class GitLabError(RuntimeError):
     """Configuration or API error from the GitLab adapter."""
@@ -50,7 +52,11 @@ class GitLabClient:
         dry_run: bool = True,
         timeout: float = 15.0,
     ) -> None:
-        self.base_url = (base_url or os.environ.get("GITLAB_URL") or "https://gitlab.com").rstrip("/")
+        self.base_url = check_url(
+            (base_url or os.environ.get("GITLAB_URL") or "https://gitlab.com").strip().rstrip("/"),
+            GitLabError,
+            "GitLab base URL",
+        )
         self.token = token if token is not None else os.environ.get("GITLAB_TOKEN", "")
         self.project_id = project_id or os.environ.get("GITLAB_PROJECT_ID", "")
         self.dry_run = dry_run
@@ -119,7 +125,7 @@ class GitLabClient:
                 raw = response.read().decode("utf-8")
                 return {"status": response.status, "body": _maybe_json(raw)}
         except urllib.error.HTTPError as exc:
-            raw = exc.read().decode("utf-8", "replace")
+            raw = redact(exc.read().decode("utf-8", "replace"), self.token)
             raise GitLabError(f"GitLab API {method} {url} failed: HTTP {exc.code} {raw[:300]}") from exc
         except urllib.error.URLError as exc:
             raise GitLabError(f"GitLab API {method} {url} unreachable: {exc.reason}") from exc

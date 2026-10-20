@@ -64,7 +64,8 @@ in the post-code phase: analysis, decisions, actions.
   parses the decision from the response. Missing configuration, HTTP errors,
   non-JSON bodies and responses without a recommendation are typed errors.
 - GitLab adapter uses `urllib.request` with `PRIVATE-TOKEN`; dry-run records
-  `Action` objects and never opens a socket.
+  `Action` objects and never opens a socket. Both adapters refuse a plaintext
+  `http` URL (loopback excepted) and strip the token from error bodies.
 - CI uses `alpine:3.20` + `apk add git python3 py3-pytest py3-yaml`; the earlier
   `python:3.12-slim` image had no `git`, so its `git diff` step could never run.
 
@@ -89,7 +90,7 @@ in the post-code phase: analysis, decisions, actions.
 
 ## Accomplishments
 
-- 48 unit tests, including the required negative case: a clean diff with a test
+- 66 unit tests, including the required negative case: a clean diff with a test
   update scores 0 (< 20), while the risky fixture scores 100 with eight findings.
 - Static tests parse `.gitlab-ci.yml` and the Duo flow and enforce the image's
   git installation, the MR/branch `rules:`, the diff ranges, the offline flags,

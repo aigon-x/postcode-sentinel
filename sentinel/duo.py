@@ -20,6 +20,7 @@ import urllib.error
 import urllib.request
 
 from .models import ReviewResult
+from .transport import check_url, redact
 
 
 class DuoError(RuntimeError):
@@ -53,11 +54,15 @@ class DuoAgentClient:
         transport=None,
     ) -> None:
         self.offline = offline
-        self.endpoint = (
-            endpoint
-            if endpoint is not None
-            else os.environ.get("GITLAB_DUO_ENDPOINT") or _default_endpoint()
-        ).strip()
+        self.endpoint = check_url(
+            (
+                endpoint
+                if endpoint is not None
+                else os.environ.get("GITLAB_DUO_ENDPOINT") or _default_endpoint()
+            ).strip(),
+            DuoError,
+            "GitLab Duo endpoint",
+        )
         self.token = token if token is not None else os.environ.get("GITLAB_DUO_TOKEN", "")
         self.project_id = (
             project_id
@@ -122,7 +127,7 @@ class DuoAgentClient:
                 raw = response.read().decode("utf-8")
                 status = getattr(response, "status", None)
         except urllib.error.HTTPError as exc:
-            body = exc.read().decode("utf-8", "replace")
+            body = redact(exc.read().decode("utf-8", "replace"), self.token)
             hint = ""
             if exc.code in (401, 403):
                 hint = " Check GITLAB_DUO_TOKEN and that Duo Agent Platform is enabled for the project."

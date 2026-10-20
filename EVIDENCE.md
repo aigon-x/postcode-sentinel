@@ -105,6 +105,22 @@ No request is built in this path; the missing-token check runs before the HTTP
 call. `test_live_mode_without_token_fails_clearly` asserts the same message and
 that `--offline` is offered.
 
+## Transport refuses to put the token on the wire in clear text
+
+```
+$ python3 -c "from sentinel.gitlab_client import GitLabClient; GitLabClient(base_url='http://gitlab.example.com', project_id='42')"
+GitLabError: GitLab base URL points at plaintext http on 'gitlab.example.com'; the token
+would travel in clear text. Use https, or point the URL at localhost for a local GitLab.
+```
+The same check runs on the Duo endpoint and raises `DuoError` with that message.
+
+Both adapters validate the URL before a request is built: https only, with
+loopback `http` allowed for a local GitLab in development; URLs carrying
+`user:password@` are refused, because those credentials land in logs and in the
+`Action` trace; a token echoed back in an API error body is replaced with
+`[redacted]`. `tests/test_transport_security.py` holds eight tests, including the
+negative cases above.
+
 ## Dry-run review — no network
 
 ```

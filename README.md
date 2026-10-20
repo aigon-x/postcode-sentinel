@@ -117,6 +117,10 @@ Environment variables (never hardcode them):
 - `GITLAB_PROJECT_ID` — numeric id or URL-encoded path; required for live
 - `GITLAB_TOKEN` — project access token with `api` scope; required for live
 
+The URL must be `https` (loopback `http` is allowed for a local GitLab) and must
+not embed `user:password@` — the adapter refuses both instead of sending a token
+over clear text. A token echoed back in an API error body is redacted.
+
 Live mode without `GITLAB_TOKEN` exits with code 2 and a message pointing back to
 `--dry-run`. `review` with `--mr-iid` posts an MR note; a score ≥ 55 (or
 `--issue`) also opens an issue labelled `postcode-sentinel`.
