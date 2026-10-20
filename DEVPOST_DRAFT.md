@@ -142,7 +142,7 @@ pytest · PyYAML (tests only) · GitLab REST API v4 · GitLab Duo Agent Platform
 ## Links
 
 - Repository (current): `https://github.com/aigon-x/postcode-sentinel`
-- GitLab project: pending migration; CI and Duo need a GitLab URL
+- GitLab project: https://gitlab.com/szamaniai-group/postcode-sentinel; CI and Duo need a GitLab URL
 - Demo video: `<VIDEO_URL_PLACEHOLDER>`
 
 ## Running it
@@ -171,3 +171,8 @@ trigger. Live GitLab action run (never required for the demo):
 export GITLAB_TOKEN="<project-access-token>"   # api scope
 python3 -m sentinel review merged.diff --offline --live --mr-iid 7
 ```
+
+
+## Duo run
+- Flow `PostCode Sentinel` registered in the AI Catalog and enabled on the project.
+- Session [9763141](https://gitlab.com/szamaniai-group/postcode-sentinel/-/automate/agent-sessions/9763141) started by a mention and completed.

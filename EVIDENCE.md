@@ -334,3 +334,11 @@ PASS documentation  README.md
 8/8 gates passed
 ```
 Job `quality-gates` publikuje `quality-gates.json` oraz raport Code Quality (`codequality.json`).
+(+ P)
+## Duo Agent Platform — przebieg live (2026-10-20)
+- Flow zarejestrowany w AI Catalog: `gid://gitlab/Ai::Catalog::Item/1018889`, nazwa **PostCode Sentinel**.
+- Włączony na projekcie `szamaniai-group/postcode-sentinel` (konsument `12867900`) z triggerami
+  `mention` i `assign_reviewer`; konto usługi: `ai-postcode-sentinel-szamaniai-group`.
+- Przebieg wywołany wzmianką w issue #1:
+  „started session [9763141]" → „completed session [9763141]".
+- Sesja: https://gitlab.com/szamaniai-group/postcode-sentinel/-/automate/agent-sessions/9763141

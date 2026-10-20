@@ -14,8 +14,6 @@ components:
     inputs:
       - from: "context:goal"
         as: "goal"
-      - from: "context:project_id"
-        as: "project_id"
     toolset:
       - "get_repository_file"
       - "get_repository_files"
