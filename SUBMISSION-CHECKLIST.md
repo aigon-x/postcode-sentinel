@@ -10,10 +10,10 @@ Deadline: **2026-10-27**
 | Licencja MIT w repo | DONE | LICENSE |
 | Architektura | DONE | ARCHITECTURE.md |
 | Tech sponsora | DONE (offline) | GitLab Duo Agent Platform (adapter, offline reasoner) |
-| Repo publiczne | BLOKADA: zgoda Suwerena | wymaga publikacji |
+| Repo publiczne | DONE | https://github.com/aigon-x/postcode-sentinel.git |
 | Demo publiczne (URL) | BLOKADA: zgoda Suwerena | wymaga wdrożenia |
 | Wideo (<3 min) | BRAK | do nagrania po decyzji Suwerena |
 
-Pozycji zamkniętych: 6/9.
+Pozycji zamkniętych: 7/9.
 Blokady wymagają decyzji Suwerena (publikacja, wdrożenie, wideo).
 Plik generowany przez tools/write_checklists.py — nie edytować ręcznie.

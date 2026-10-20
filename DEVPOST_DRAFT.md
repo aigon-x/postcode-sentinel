@@ -98,7 +98,7 @@ pytest · GitLab REST API v4 · GitLab Duo Agent Platform (adapter) · GitLab CI
 
 ## Links
 
-- Repository: `<REPO_URL_PLACEHOLDER>`
+- Repository: `https://github.com/aigon-x/postcode-sentinel`
 - Demo video: `<VIDEO_URL_PLACEHOLDER>`
 
 ## Running it
