@@ -54,6 +54,8 @@ def run(root: str) -> list[dict]:
             continue  # the gate file names the patterns it forbids
         if rel in ('quality-gates.json', 'codequality.json'):
             continue  # reports quote the findings they describe
+        if rel == os.path.join('tests', 'test_quality_gates.py'):
+            continue  # fixtures deliberately contain the patterns under test
         body = read(path)
         for match in SECRET_RE.finditer(body):
             if 'AKIAIOSFODNN7EXAMPLE' in match.group(0):
