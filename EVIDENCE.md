@@ -228,7 +228,13 @@ Endpoints:
 |---|---|---|
 | GET | `/` | serves `web/index.html` (dark UI, accent `#4c82d9`) |
 | GET | `/api/health` | `{"status":"ok","service":"postcode-sentinel-web","version":"0.1.0"}` |
-| POST | `/api/analyze` | body `{"diff":"..."}` → `score`, `level`, `findings`, `markdown`; empty or unparsable diff → `400` |
+| POST | `/api/analyze` | body `{"diff":"..."}` → `score`, `level`, `findings`, `recommendation`, `rationale`, `decision_mode`, `markdown`; empty or unparsable diff → `400` |
+
+The recommended action is not computed in the web layer: `sentinel.duo.offline_decision` maps
+the score to `approve` (<30), `comment_and_review` (≥30), `block_and_followup` (≥55) or
+`revert` (≥75), exactly as `review --offline` does. The page shows it as a badge next to the
+level, with the rationale underneath, and the exported markdown carries the same decision
+block.
 
 The request size is bounded. `POST /api/analyze` requires `Content-Length` (`411` without
 it) and refuses anything above 4 MB with `413` before FastAPI parses the body; the model
@@ -249,9 +255,20 @@ not break the normal path. Ablation: skipping `_body_rejection` turns the first 
 
 ```
 $ python3 -m pytest -q -p no:warnings tests/test_web.py
-............                                                             [100%]
-12 passed in 1.22s
+..............                                                           [100%]
+14 passed in 1.02s
 ```
+
+Browser check (Chromium 155, 1440×1000 and 390×844) against `python3 -m uvicorn web.server:app`
+with `tests/fixtures/risky.diff` pasted into the textarea: score **100**, level badge
+`CRITICAL`, action badge `REVERT`, rationale line "Score 100/100 (critical). Rules fired:
+auth-change, ci-config-change, …", status line "… recommended action revert.", the raw
+markdown contains `recommendation: **revert**`, 0 console errors. Frames:
+`evidence/webui-decision-desktop.png`, `evidence/webui-decision-mobile.png`.
+
+The same run measured a pre-existing responsive defect: at 390 px the five-column findings
+table pushed the page to 498 px. The table now sits in a `.table-scroll` container, so the
+page stays at 390 px and the table itself scrolls (`[390, 390]` after the change).
 
 Earlier revision of this section (8 tests) is kept below for the record.
 

@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from sentinel.diff_parser import DiffParseError, parse_unified_diff
+from sentinel.duo import offline_decision
 from sentinel.report import render_markdown
 from sentinel.scoring import analyze_changeset
 
@@ -111,7 +112,10 @@ def analyze(payload: AnalyzeRequest) -> JSONResponse:
         )
 
     result = analyze_changeset(changeset)
-    markdown = render_markdown(result, mode="offline")
+    # Same decision the CLI reports, from the same function: the demo must not invent
+    # a second policy for "comment / block / revert".
+    decision = offline_decision(result)
+    markdown = render_markdown(result, mode=decision["mode"], duo=decision)
     findings = [
         {
             "rule": f.rule_id,
@@ -131,6 +135,9 @@ def analyze(payload: AnalyzeRequest) -> JSONResponse:
         "lines_added": changeset.total_added,
         "lines_removed": changeset.total_removed,
         "findings": findings,
+        "recommendation": decision["recommendation"],
+        "rationale": decision["rationale"],
+        "decision_mode": decision["mode"],
         "markdown": markdown,
     }
     return JSONResponse(body)

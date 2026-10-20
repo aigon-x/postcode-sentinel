@@ -82,6 +82,7 @@ button[aria-busy="true"] .spinner{display:inline-block}
 .badge.b-high{color:var(--high);border-color:rgba(240,180,41,.45);background:rgba(240,180,41,.10)}
 .badge.b-medium{color:var(--medium);border-color:rgba(76,130,217,.45);background:rgba(76,130,217,.10)}
 .badge.b-low{color:var(--low);border-color:rgba(63,191,143,.45);background:rgba(63,191,143,.10)}
+.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .meta{display:grid;grid-template-columns:repeat(3,minmax(90px,1fr));gap:10px 18px;flex:1;min-width:240px}
 .meta div{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:9px 12px}
 .meta dt{color:var(--muted);font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin:0 0 2px}
@@ -167,6 +168,7 @@ footer a{color:var(--accent);text-decoration:none}
       <div class="score-block">
         <span id="score" class="score">0</span><span class="score-max">/100</span>
         <span id="level-badge" class="badge">low</span>
+        <span id="action-badge" class="badge">approve</span>
       </div>
       <dl class="meta">
         <div><dt>Files</dt><dd id="m-files">0</dd></div>
@@ -174,14 +176,17 @@ footer a{color:var(--accent);text-decoration:none}
         <div><dt>Removed</dt><dd id="m-removed" class="mono">-0</dd></div>
       </dl>
     </div>
+    <p id="action-note" class="hint"></p>
 
-    <table id="reasons-table" aria-describedby="reasons-caption">
-      <caption id="reasons-caption">Reasons</caption>
-      <thead>
-        <tr><th scope="col">Severity</th><th scope="col">Rule</th><th scope="col">File</th><th scope="col" style="text-align:right">Weight</th><th scope="col">Reason</th></tr>
-      </thead>
-      <tbody id="reasons-body"></tbody>
-    </table>
+    <div class="table-scroll">
+      <table id="reasons-table" aria-describedby="reasons-caption">
+        <caption id="reasons-caption">Reasons</caption>
+        <thead>
+          <tr><th scope="col">Severity</th><th scope="col">Rule</th><th scope="col">File</th><th scope="col" style="text-align:right">Weight</th><th scope="col">Reason</th></tr>
+        </thead>
+        <tbody id="reasons-body"></tbody>
+      </table>
+    </div>
     <p id="no-findings" class="hint" hidden>No risk rules fired on this diff.</p>
 
     <details>
@@ -223,6 +228,19 @@ footer a{color:var(--accent);text-decoration:none}
     status.textContent = "Analysis failed: " + message;
   }
 
+  var ACTION_TEXT = {
+    revert: "revert",
+    block_and_followup: "block + follow-up",
+    comment_and_review: "comment + review",
+    approve: "approve"
+  };
+  var ACTION_CLASS = {
+    revert: "critical",
+    block_and_followup: "high",
+    comment_and_review: "medium",
+    approve: "low"
+  };
+
   function render(data) {
     var cls = levelClass(data.level);
     var score = $("score");
@@ -231,6 +249,14 @@ footer a{color:var(--accent);text-decoration:none}
     var badge = $("level-badge");
     badge.textContent = BADGE_TEXT[cls];
     badge.className = "badge b-" + cls;
+    var action = data.recommendation || "approve";
+    var actionBadge = $("action-badge");
+    actionBadge.textContent = ACTION_TEXT[action] || action;
+    actionBadge.className = "badge b-" + (ACTION_CLASS[action] || "low");
+    actionBadge.setAttribute("title", "Recommended action: " + (ACTION_TEXT[action] || action));
+    $("action-note").textContent = data.rationale
+      ? data.rationale + (data.decision_mode ? " (mode: " + data.decision_mode + ")" : "")
+      : "";
     $("m-files").textContent = String(data.files_total);
     $("m-added").textContent = "+" + data.lines_added;
     $("m-removed").textContent = "-" + data.lines_removed;
@@ -254,7 +280,8 @@ footer a{color:var(--accent);text-decoration:none}
     $("reasons-table").hidden = findings.length === 0;
     $("markdown").textContent = data.markdown || "";
     showOnly(result);
-    status.textContent = "Analysis complete. Risk score " + data.score + " of 100, level " + BADGE_TEXT[cls] + ".";
+    status.textContent = "Analysis complete. Risk score " + data.score + " of 100, level "
+      + BADGE_TEXT[cls] + ", recommended action " + (ACTION_TEXT[action] || action) + ".";
   }
 
   async function analyze() {

@@ -130,8 +130,11 @@ Live mode without `GITLAB_TOKEN` exits with code 2 and a message pointing back t
 
 `python3 -m uvicorn web.server:app --port 8099` serves a single-page inspector at
 `http://127.0.0.1:8099/`; `POST /api/analyze` takes `{"diff": "..."}` and returns the same
-score, findings and markdown as the CLI. The endpoint requires `Content-Length` and refuses
-bodies above 4 MB (`413`), so a pasted megadiff cannot exhaust a single worker.
+score, findings, recommended action and markdown as the CLI. The recommendation
+(`approve` / `comment_and_review` / `block_and_followup` / `revert`) comes from
+`sentinel.duo.offline_decision`, the same function `review` uses, so the page cannot drift
+from the CLI. The endpoint requires `Content-Length` and refuses bodies above 4 MB (`413`),
+so a pasted megadiff cannot exhaust a single worker.
 
 ## CI
 

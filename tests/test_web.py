@@ -18,6 +18,7 @@ from web.server import MAX_DIFF_CHARS, MAX_REQUEST_BYTES, AnalyzeRequest, _body_
 
 ROOT = Path(__file__).resolve().parent.parent
 RISKY_DIFF = ROOT / "tests" / "fixtures" / "risky.diff"
+CLEAN_DIFF = ROOT / "tests" / "fixtures" / "clean.diff"
 
 
 @pytest.fixture()
@@ -108,3 +109,23 @@ def test_small_diff_still_works(client: TestClient) -> None:
     response = client.post("/api/analyze", json={"diff": RISKY_DIFF.read_text(encoding="utf-8")})
     assert response.status_code == 200
     assert response.json()["score"] >= 55
+
+
+def test_analysis_reports_the_recommended_action(client: TestClient) -> None:
+    """The product promises comment / block / revert; the demo has to show the decision."""
+    body = client.post("/api/analyze", json={"diff": RISKY_DIFF.read_text(encoding="utf-8")}).json()
+    assert body["score"] >= 75
+    assert body["recommendation"] == "revert"
+    assert body["decision_mode"] == "offline"
+    assert body["rationale"].startswith("Score ")
+    assert "recommendation: **revert**" in body["markdown"]
+    assert 'id="action-badge"' in client.get("/").text
+
+
+def test_recommendation_uses_the_shared_mapping(client: TestClient) -> None:
+    """The web layer must not grow a second policy next to sentinel.duo.recommendation_for."""
+    from sentinel.duo import recommendation_for
+
+    for fixture, expected in ((RISKY_DIFF, "revert"), (CLEAN_DIFF, "approve")):
+        body = client.post("/api/analyze", json={"diff": fixture.read_text(encoding="utf-8")}).json()
+        assert body["recommendation"] == recommendation_for(body["score"]) == expected

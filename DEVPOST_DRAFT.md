@@ -90,7 +90,7 @@ in the post-code phase: analysis, decisions, actions.
 
 ## Accomplishments
 
-- 76 unit tests, including the required negative case: a clean diff with a test
+- 82 unit tests, including the required negative case: a clean diff with a test
   update scores 0 (< 20), while the risky fixture scores 100 with eight findings.
 - The rule engine is measured: a seven-case labelled corpus scores it at precision 1.0 /
   recall 1.0 per rule, with an ablation test that fails if the metric stops reacting.
@@ -102,6 +102,8 @@ in the post-code phase: analysis, decisions, actions.
   socket.
 - The README quick start is executed by a test, so a documented command that no longer
   exists fails the suite instead of the reviewer's first click.
+- The web inspector shows the recommended action (approve / comment / block / revert)
+  from the same mapping the CLI uses, so a judge sees the decision, not only a score.
 - Every score point traces to a finding with a file, reason and evidence.
 - Zero runtime dependencies; CI needs only Alpine packages.
 
