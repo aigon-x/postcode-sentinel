@@ -16,7 +16,7 @@ reasoner, and no API calls unless you explicitly pass `--live` with a token.
 ## Quick start
 
 ```bash
-cd project
+cd postcode-sentinel
 python3 -m pytest tests -q
 python3 -m sentinel analyze tests/fixtures/risky.diff --format json
 python3 -m sentinel analyze tests/fixtures/clean.diff --format md
