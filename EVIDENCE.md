@@ -7,25 +7,55 @@ the terminal, not retyped.
 
 ```
 $ date -Is
-2026-10-20T11:54:36+02:00
+2026-10-20T12:42:57+02:00
 
 $ python3 --version
 Python 3.11.15
 ```
 
-Runtime code uses the standard library only; `pytest 9.0.3` is the test runner.
-The CI image is `python:3.12-slim` (see `.gitlab-ci.yml`); the local host here
-has 3.11.15, which is why the README states 3.11+.
+Runtime code uses the standard library only; `pytest 9.0.3` is the test runner
+and `PyYAML 6.0.3` is used only by the static CI/Duo config tests. The CI image
+is `alpine:3.20` with `git`, `python3`, `py3-pytest` and `py3-yaml` installed
+(see `.gitlab-ci.yml`).
 
 ## Test suite
 
 ```
 $ python3 -m pytest tests -q
-............................                                             [100%]
-28 passed in 0.10s
+................................................                         [100%]
+48 passed in 0.28s
 ```
 
-Required negative case (clean diff must score below 20):
+Static CI and Duo configuration tests alone:
+
+```
+$ python3 -m pytest tests/test_ci_config.py -q
+..........                                                               [100%]
+10 passed in 0.05s
+```
+
+That file parses `.gitlab-ci.yml` and `.gitlab/duo/flows/postcode-sentinel.yml`
+and asserts: the image is `alpine:3.20`; `apk add` includes `git`, `python3`,
+`py3-pytest`, `py3-yaml`; jobs run on merge request pipelines and pushes to the
+default branch; the diff uses
+`origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME...HEAD` or
+`$CI_COMMIT_BEFORE_SHA..$CI_COMMIT_SHA` with a `HEAD~1..HEAD` fallback; no `tee`
+pipe can mask a failure; the sentinel steps use `--offline`; the flow has the
+required v1 keys and avoids restricted custom-flow fields; the Duo rules, agent
+registration and workspace subagent files exist in their documented formats.
+
+Covered areas: parser (git and plain diffs, added/deleted files, hunk symbols,
+rejection of non-diffs), rules (secret, removed tests, migration, destructive
+SQL, determinism, clean diff severity), scoring (risky ≥ 60, clean < 20, cap and
+traceability, level thresholds), GitLab client (dry-run, missing token, missing
+project id, invalid input, mocked live dispatch), Duo (explicit offline label,
+no transport in offline mode, missing `GITLAB_DUO_TOKEN`, missing project id,
+workflow POST payload and auth header, nested `result` JSON parsing, missing
+recommendation, HTTP 401, unreachable, non-JSON, endpoint default), CLI (json/md
+output, live Duo error mapping, dry-run action preview, live without token,
+missing file), CI/Duo config (static checks above).
+
+Required negative case (clean diff must score below 20) still passes:
 
 ```
 $ python3 -m pytest tests/test_scoring.py::test_clean_diff_scores_below_20 -q
@@ -41,76 +71,46 @@ assert result.score < 20
 assert result.level == "low"
 ```
 
-Observed score for `tests/fixtures/clean.diff` is `0` (see below).
+Observed score for `tests/fixtures/clean.diff` is `0`.
 
-Covered areas: parser (git and plain diffs, added/deleted files, hunk symbols,
-rejection of non-diffs), rules (secret, removed tests, migration, destructive
-SQL, determinism, clean diff severity), scoring (risky ≥ 60, clean < 20, cap and
-traceability, level thresholds), GitLab client (dry-run, missing token, missing
-project id, invalid input, mocked live dispatch), Duo (offline label, clean
-approval, live POST parsing, live failure), CLI (json/md output, dry-run action
-preview, live without token, missing file).
-
-## Risky fixture — score and reasons
+## Risky fixture — score and reasons (offline)
 
 ```
-$ python3 -m sentinel analyze tests/fixtures/risky.diff --format md
-## PostCode Sentinel — post-merge risk review
-
-**Risk score:** `100/100` (critical)
-**Mode:** `offline-local-reasoner`
-**Changeset:** 6 file(s), +24/-14 lines
-
-| Severity | Rule | File | Weight | Reason |
-|---|---|---|---:|---|
-| critical | `secret-in-diff` | `app/settings.py` | 40 | diff adds AWS access key in app/settings.py |
-| critical | `destructive-sql` | `migrations/0007_drop_orders_table.py` | 30 | destructive SQL added in migrations/0007_drop_orders_table.py |
-| high | `removed-tests` | `tests/test_billing.py` | 25 | test file deleted: tests/test_billing.py |
-| high | `migration-change` | `migrations/0007_drop_orders_table.py` | 20 | schema migration touched (added): migrations/0007_drop_orders_table.py |
-| high | `auth-change` | `app/auth/tokens.py` | 20 | authentication/authorization weakening pattern added in app/auth/tokens.py |
-| medium | `logic-without-tests` | `app/billing.py` | 20 | 10 changed line(s) in app/billing.py with no test file in the same diff |
-| medium | `ci-config-change` | `.gitlab-ci.yml` | 10 | CI/CD configuration changed (modified): .gitlab-ci.yml |
-| low | `debug-leftovers` | `app/auth/tokens.py` | 5 | debug/TODO markers added in app/auth/tokens.py |
-
-### Duo agent decision
-
-- mode: `offline-local-reasoner`
-- recommendation: **revert**
-- rationale: Score 100/100 (critical). Rules fired: auth-change, ci-config-change, debug-leftovers, destructive-sql, logic-without-tests, migration-change, removed-tests, secret-in-diff. Top reason: diff adds AWS access key in app/settings.py
-
-### Suggested actions
-
-- Rotate the exposed credential immediately and purge it from history.
-- Block further merges until the destructive migration is reviewed by a DBA.
-- Restore or replace the removed test coverage before the next release.
-- Verify forward and rollback migrations against a production-like snapshot.
-- Request a security review of the changed authentication surface.
-- Open a blocking issue and propose reverting the merge commit.
-```
-
-## Clean fixture — negative path
-
-```
-$ python3 -m sentinel analyze tests/fixtures/clean.diff --format json | python3 -c 'import json,sys; d=json.load(sys.stdin); print(json.dumps({k:d[k] for k in ("score","level","files_total","findings","mode")}, indent=2))'
+$ python3 -m sentinel analyze tests/fixtures/risky.diff --offline --format json | ...
 {
-  "score": 0,
-  "level": "low",
-  "files_total": 3,
-  "findings": [],
-  "mode": "offline-local-reasoner"
+  "score": 100,
+  "level": "critical",
+  "mode": "offline",
+  "duo_mode": "offline",
+  "duo_recommendation": "revert"
 }
 ```
+
+The Markdown report lists eight findings (secret-in-diff, destructive-sql,
+removed-tests, migration-change, auth-change, logic-without-tests,
+ci-config-change, debug-leftovers) with a file, weight and reason per row, and
+the heading `**Mode:** \`offline\``.
+
+## Live Duo without a token — fail closed
+
+```
+$ env -u GITLAB_DUO_TOKEN GITLAB_PROJECT_ID=42 python3 -m sentinel analyze tests/fixtures/clean.diff --format json
+error: GITLAB_DUO_TOKEN is not set. A live Duo Agent Platform call needs a GitLab token with access to the project's Duo workflow API. Set GITLAB_DUO_TOKEN, or run with --offline to use the local deterministic reasoner.
+exit=2
+```
+
+No request is built in this path; the missing-token check runs before the HTTP
+call. `test_live_mode_without_token_fails_clearly` asserts the same message and
+that `--offline` is offered.
 
 ## Dry-run review — no network
 
 ```
-$ env -u GITLAB_TOKEN GITLAB_PROJECT_ID=42 python3 -m sentinel review tests/fixtures/risky.diff --mr-iid 7 --format json | python3 -c 'import json,sys; d=json.load(sys.stdin); print(json.dumps({"dry_run":d["dry_run"],"mode":d["mode"],"score":d["score"],"level":d["level"],"recommendation":d["recommendation"],"actions":[{k:a[k] for k in ("kind","method","url","dry_run")} for a in d["actions"]]}, indent=2))'
+$ env -u GITLAB_TOKEN GITLAB_PROJECT_ID=42 python3 -m sentinel review tests/fixtures/risky.diff --offline --mr-iid 7 --format json | ...
 {
   "dry_run": true,
-  "mode": "offline-local-reasoner",
+  "mode": "offline",
   "score": 100,
-  "level": "critical",
-  "recommendation": "revert",
   "actions": [
     {
       "kind": "comment_mr",
@@ -128,22 +128,57 @@ $ env -u GITLAB_TOKEN GITLAB_PROJECT_ID=42 python3 -m sentinel review tests/fixt
 }
 ```
 
-`dry_run: true` and `status: null` in the full payload show no request was made.
+## CI diff step — executed locally with `sh`
 
-## Live mode without token — fail closed
+The exact shell block from `.gitlab-ci.yml` was run in the repository with no CI
+variables set, so it took the branch-pipeline fallback:
 
 ```
-$ env -u GITLAB_TOKEN GITLAB_PROJECT_ID=42 python3 -m sentinel review tests/fixtures/risky.diff --live --mr-iid 7
-error: GITLAB_TOKEN is not set. Live mode needs a project access token with 'api' scope. Re-run with --dry-run (the default) to preview actions.
-exit=2
+$ sh -c '<script block from .gitlab-ci.yml>'
+diff range: HEAD~1..HEAD
+diff bytes: 5420
+
+$ python3 -m sentinel review /tmp/merged.diff --offline --dry-run --format md | head -6
+## PostCode Sentinel — post-merge risk review
+
+**Risk score:** `0/100` (low)
+**Mode:** `offline`
+**Changeset:** 2 file(s), +71/-1 lines
+```
+
+This proves the diff-building and report commands work with a POSIX shell and a
+real git checkout. The Alpine image itself (`apk add git ...`) could not be
+executed here: no Docker build/run was performed under the build rules.
+
+## Duo configuration files
+
+```
+$ find .gitlab .agents -type f
+.gitlab/duo/chat-rules.md
+.gitlab/duo/agent.md
+.gitlab/duo/flows/postcode-sentinel.yml
+.agents/agents/postcode-sentinel-reviewer.md
+```
+
+```
+$ python3 -c 'import yaml; d=yaml.safe_load(open(".gitlab/duo/flows/postcode-sentinel.yml")); print(sorted(d)); print("entry:", d["flow"]["entry_point"], "prompts:", [p["prompt_id"] for p in d["prompts"]])'
+['components', 'environment', 'flow', 'prompts', 'routers', 'version']
+entry: postcode_sentinel prompts: ['postcode_sentinel_review']
 ```
 
 ## What was not run
 
-- No live GitLab API call: no token was available in this environment. The live
+- **No live Duo call.** No GitLab Duo entitlement or `GITLAB_DUO_TOKEN` was
+  available in this environment. The live request shape, auth header, payload
+  and response parsing are covered by tests with an injected transport
+  (`test_live_mode_posts_duo_workflow_and_parses_response` and the failure-path
+  tests). The flow has not been registered in a GitLab AI Catalog and has not
+  been executed end to end.
+- **No live GitLab API call.** No `GITLAB_TOKEN` was available. The live
   transport is exercised only by the mocked test
   `test_live_dispatch_uses_mocked_transport`.
-- No live Duo call: `DUO_AGENT_ENDPOINT` was not configured. The live request
-  shape and response parsing are covered by
-  `test_live_mode_posts_and_parses_response` with a mocked `urlopen`.
-- No `docker build` and no full repository test suite, per the build rules.
+- **No GitLab CI pipeline run.** The repository is still on GitHub
+  (`https://github.com/aigon-x/postcode-sentinel`); GitLab CI only runs after
+  the project is pushed to a GitLab instance. The YAML and its commands were
+  validated statically and the diff step was executed locally with `sh`.
+- **No `docker build` and no full repository test suite**, per the build rules.

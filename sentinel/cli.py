@@ -26,8 +26,12 @@ def build_parser() -> argparse.ArgumentParser:
     analyze = sub.add_parser("analyze", help="score a unified diff and print a report")
     analyze.add_argument("diff_file", help="path to a unified diff")
     analyze.add_argument("--format", choices=("json", "md"), default="md")
-    analyze.add_argument("--offline", action="store_true", help="force the local Duo reasoner")
-    analyze.add_argument("--duo-endpoint", default=None, help="Duo agent endpoint (or DUO_AGENT_ENDPOINT)")
+    analyze.add_argument(
+        "--offline",
+        action="store_true",
+        help="use the local deterministic reasoner instead of calling Duo",
+    )
+    analyze.add_argument("--duo-endpoint", default=None, help="Duo workflow API URL (or GITLAB_DUO_ENDPOINT)")
 
     review = sub.add_parser("review", help="score a diff and propose GitLab actions")
     review.add_argument("diff_file", help="path to a unified diff")
@@ -38,7 +42,11 @@ def build_parser() -> argparse.ArgumentParser:
     review.add_argument("--gitlab-url", default=None, help="GitLab base URL (or GITLAB_URL)")
     review.add_argument("--project-id", default=None, help="GitLab project id (or GITLAB_PROJECT_ID)")
     review.add_argument("--format", choices=("json", "md"), default="json")
-    review.add_argument("--offline", action="store_true", help="force the local Duo reasoner")
+    review.add_argument(
+        "--offline",
+        action="store_true",
+        help="use the local deterministic reasoner instead of calling Duo",
+    )
 
     return parser
 
@@ -55,7 +63,11 @@ def cmd_analyze(args: argparse.Namespace) -> int:
     changeset = _load_diff(args.diff_file)
     result = analyze_changeset(changeset)
     duo = DuoAgentClient(endpoint=args.duo_endpoint, offline=args.offline)
-    decision = duo.decide(result)
+    try:
+        decision = duo.decide(result)
+    except DuoError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
     mode = decision["mode"]
     if args.format == "json":
         print(render_json(result, {"mode": mode, "duo": decision}))
@@ -67,7 +79,7 @@ def cmd_analyze(args: argparse.Namespace) -> int:
 def cmd_review(args: argparse.Namespace) -> int:
     changeset = _load_diff(args.diff_file)
     result = analyze_changeset(changeset)
-    duo = DuoAgentClient(offline=args.offline)
+    duo = DuoAgentClient(offline=args.offline, project_id=args.project_id)
     try:
         decision = duo.decide(result)
     except DuoError as exc:
@@ -126,5 +138,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: unparseable diff: {exc}", file=sys.stderr)
         return 2
     except FileNotFoundError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    except DuoError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

@@ -1,0 +1,62 @@
+version: "v1"
+environment: ambient
+
+# Flow Registry v1 configuration for PostCode Sentinel.
+# Source of truth: docs/flow_registry/v1.md (schema) and
+# https://docs.gitlab.com/user/duo_agent_platform/flows/custom_flows_schema/
+# Custom flows are registered in GitLab (AI > Flows or AI Catalog); GitLab does
+# not load this file automatically, it is the configuration to paste there.
+
+components:
+  - name: "postcode_sentinel"
+    type: AgentComponent
+    prompt_id: "postcode_sentinel_review"
+    inputs:
+      - from: "context:goal"
+        as: "goal"
+      - from: "context:project_id"
+        as: "project_id"
+    toolset:
+      - "get_repository_file"
+      - "get_repository_files"
+      - "list_repository_tree"
+    ui_log_events:
+      - "on_agent_final_answer"
+      - "on_tool_execution_success"
+      - "on_tool_execution_failed"
+
+routers:
+  - from: "postcode_sentinel"
+    to: "end"
+
+flow:
+  entry_point: "postcode_sentinel"
+
+prompts:
+  - prompt_id: "postcode_sentinel_review"
+    name: "PostCode Sentinel decision"
+    unit_primitives: []
+    prompt_template:
+      system: |
+        You are PostCode Sentinel, the decision layer of a post-merge risk review agent.
+        A deterministic rule engine has already computed the score and produced one
+        finding per risk rule. Do not change the score and do not invent findings.
+
+        Inspect repository files only when the supplied context is not enough to
+        explain a finding. Then return exactly one JSON object with this shape:
+
+        {"recommendation": "approve" | "comment_and_review" | "block_and_followup" | "revert",
+         "rationale": "<one short paragraph citing the strongest findings>"}
+
+        Recommendation rules:
+        - revert: exposed secret, destructive schema change, or score >= 75
+        - block_and_followup: score >= 55, auth change, or removed tests
+        - comment_and_review: score >= 30
+        - approve: score < 30 and no critical finding
+
+        Return JSON only: no Markdown fences, no extra keys, no questions.
+      user: |
+        Review context:
+        {{goal}}
+    params:
+      timeout: 180
