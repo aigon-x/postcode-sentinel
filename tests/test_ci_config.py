@@ -34,8 +34,11 @@ def _script(job):
 
 
 def test_ci_yaml_parses_with_expected_jobs_and_stages(ci):
-    assert ci["stages"] == ["test", "postcode"]
-    assert set(_jobs(ci)) == {"unit-tests", "postcode-sentinel"}
+    assert ci["stages"] == ["test", "quality", "postcode"]
+    assert set(_jobs(ci)) == {"unit-tests", "quality-gates", "postcode-sentinel"}
+    gates = ci["quality-gates"]
+    assert "ci/quality_gates.py" in _script(gates)
+    assert gates["artifacts"]["reports"]["codequality"] == "codequality.json"
 
 
 def test_ci_image_installs_git_python_and_pytest(ci):
