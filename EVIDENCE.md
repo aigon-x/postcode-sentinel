@@ -230,11 +230,30 @@ Endpoints:
 | GET | `/api/health` | `{"status":"ok","service":"postcode-sentinel-web","version":"0.1.0"}` |
 | POST | `/api/analyze` | body `{"diff":"..."}` → `score`, `level`, `findings`, `markdown`; empty or unparsable diff → `400` |
 
+The request size is bounded. `POST /api/analyze` requires `Content-Length` (`411` without
+it) and refuses anything above 4 MB with `413` before FastAPI parses the body; the model
+caps `diff` at 4 MiB characters as a second layer. Measured on one uvicorn worker with an
+8.6 MB (8.3 MiB) JSON body, 200 000 added lines:
+
+```
+before the cap: 200 OK in 7.25 s, worker peak RSS 52 -> 110 MB
+after the cap:  413 in 0.26 s, peak RSS unchanged (89.9 MB)
+```
+
+The rejected body is drained (up to 16 MB) before the response, so a client reads the error
+body instead of a connection reset. Regression:
+`tests/test_web.py::test_oversized_diff_is_refused_before_the_analyzer` (the analyzer is
+monkeypatched to raise; it must never be called), `::test_content_length_policy`,
+`::test_model_also_caps_the_diff`, plus `::test_small_diff_still_works` to prove the cap did
+not break the normal path. Ablation: skipping `_body_rejection` turns the first test red.
+
 ```
 $ python3 -m pytest -q -p no:warnings tests/test_web.py
-........                                                                 [100%]
-8 passed in 1.26s
+............                                                             [100%]
+12 passed in 1.22s
 ```
+
+Earlier revision of this section (8 tests) is kept below for the record.
 
 Measured response for `tests/fixtures/risky.diff`:
 

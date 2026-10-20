@@ -12,7 +12,9 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from web.server import app
+from pydantic import ValidationError
+
+from web.server import MAX_DIFF_CHARS, MAX_REQUEST_BYTES, AnalyzeRequest, _body_rejection, app
 
 ROOT = Path(__file__).resolve().parent.parent
 RISKY_DIFF = ROOT / "tests" / "fixtures" / "risky.diff"
@@ -73,3 +75,36 @@ def test_analyze_garbage_input_is_rejected(client: TestClient) -> None:
     response = client.post("/api/analyze", json={"diff": "this is not a diff"})
     assert response.status_code == 400
     assert "diff" in response.json()["detail"].lower()
+
+
+def test_oversized_diff_is_refused_before_the_analyzer(client: TestClient, monkeypatch) -> None:
+    """A public demo cannot buffer an unbounded body: 8.6 MB cost one worker 7.3 s."""
+
+    def boom(*args, **kwargs):  # pragma: no cover - only runs on regression
+        raise AssertionError("the analyzer must not see an oversized body")
+
+    monkeypatch.setattr("web.server.analyze_changeset", boom)
+    body = '{"diff":"' + "x" * (MAX_REQUEST_BYTES + 10) + '"}'
+    response = client.post("/api/analyze", content=body,
+                           headers={"content-type": "application/json"})
+    assert response.status_code == 413
+    assert "MB" in response.json()["detail"]
+
+
+def test_content_length_policy() -> None:
+    """The decision uses the header alone, so the body is never read to find out."""
+    assert _body_rejection(None).status_code == 411
+    assert _body_rejection("not-a-number").status_code == 413
+    assert _body_rejection(str(MAX_REQUEST_BYTES + 1)).status_code == 413
+    assert _body_rejection(str(MAX_REQUEST_BYTES)) is None
+
+
+def test_model_also_caps_the_diff() -> None:
+    with pytest.raises(ValidationError):
+        AnalyzeRequest(diff="x" * (MAX_DIFF_CHARS + 1))
+
+
+def test_small_diff_still_works(client: TestClient) -> None:
+    response = client.post("/api/analyze", json={"diff": RISKY_DIFF.read_text(encoding="utf-8")})
+    assert response.status_code == 200
+    assert response.json()["score"] >= 55

@@ -126,6 +126,13 @@ Live mode without `GITLAB_TOKEN` exits with code 2 and a message pointing back t
 `--dry-run`. `review` with `--mr-iid` posts an MR note; a score ≥ 55 (or
 `--issue`) also opens an issue labelled `postcode-sentinel`.
 
+## Web UI
+
+`python3 -m uvicorn web.server:app --port 8099` serves a single-page inspector at
+`http://127.0.0.1:8099/`; `POST /api/analyze` takes `{"diff": "..."}` and returns the same
+score, findings and markdown as the CLI. The endpoint requires `Content-Length` and refuses
+bodies above 4 MB (`413`), so a pasted megadiff cannot exhaust a single worker.
+
 ## CI
 
 `.gitlab-ci.yml` uses `alpine:3.20` and installs `git`, `python3`, `py3-pytest`
