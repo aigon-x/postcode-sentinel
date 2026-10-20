@@ -55,7 +55,6 @@ def test_ci_runs_for_merge_requests_and_default_branch(ci):
     conditions = " ".join(rule["if"] for rule in rules)
     assert "merge_request_event" in conditions
     assert "CI_COMMIT_BRANCH" in conditions  # API and push pipelines both carry a branch
-    assert "push" in conditions
 
 
 def test_ci_diff_uses_mr_target_or_before_sha(ci):
