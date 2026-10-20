@@ -28,6 +28,16 @@ $ python3 -m pytest -q -p no:warnings
 74 passed in 1.02s
 ```
 
+Re-run 2026-10-20 after adding `tests/test_docs.py`: `76 passed in 3.05s`.
+
+`tests/test_docs.py` executes the README quick start as written (substituting
+`sys.executable` for `python3`) and asserts every `python3 -m sentinel ...`
+command in README, DEVPOST_DRAFT and this file resolves to a real subcommand or
+module. It was added because the quick start line said `python3 -m sentinel eval`
+while the entry point is `python3 -m sentinel.eval`; the first reviewer click
+died with `invalid choice: 'eval'` (exit 2). Ablation: restoring the old line
+turns both tests red.
+
 Static CI and Duo configuration tests alone:
 
 ```
