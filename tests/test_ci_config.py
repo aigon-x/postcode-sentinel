@@ -54,7 +54,7 @@ def test_ci_runs_for_merge_requests_and_default_branch(ci):
     rules = _jobs(ci)["postcode-sentinel"]["rules"]
     conditions = " ".join(rule["if"] for rule in rules)
     assert "merge_request_event" in conditions
-    assert "CI_DEFAULT_BRANCH" in conditions
+    assert "CI_COMMIT_BRANCH" in conditions  # API and push pipelines both carry a branch
     assert "push" in conditions
 
 
