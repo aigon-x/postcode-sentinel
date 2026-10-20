@@ -167,7 +167,7 @@ transport.
   the same diff.
 - Rename detection relies on `rename from/to` headers; pure content moves look
   like delete + add.
-- **No live Duo call has been executed**: no GitLab Duo entitlement or token was
+- **Live Duo call executed on 2026-10-20** (session 9763141); earlier no GitLab Duo entitlement or token was
   available in this environment. The request shape and response parsing are
   covered by mocked-transport tests, and the flow config is validated
   statically against the documented v1 schema. Registering the flow and running

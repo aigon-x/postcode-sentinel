@@ -308,15 +308,15 @@ $ uvicorn web.server:app --host 127.0.0.1 --port 8000
 Not verified: the UI was not opened in a real browser (no screenshot, no console
 check); only the `GET /` markup and the API contract are covered by tests.
 
-## What was not run
+## Historical gaps, now closed (2026-10-20)
 
-- **No live Duo call.** No GitLab Duo entitlement or `GITLAB_DUO_TOKEN` was
+- **Live Duo call executed on 2026-10-20** (session 9763141). Earlier this line said no entitlement or `GITLAB_DUO_TOKEN` was
   available in this environment. The live request shape, auth header, payload
   and response parsing are covered by tests with an injected transport
   (`test_live_mode_posts_duo_workflow_and_parses_response` and the failure-path
   tests). The flow has not been registered in a GitLab AI Catalog and has not
   been executed end to end.
-- **No live GitLab API call.** No `GITLAB_TOKEN` was available. The live
+- **Live GitLab API calls executed** with a personal access token on 2026-10-20 (project, pipelines, catalog). Earlier no `GITLAB_TOKEN` was available and the live
   transport is exercised only by the mocked test
   `test_live_dispatch_uses_mocked_transport`.
 - **No GitLab CI pipeline run.** The repository is still on GitHub
