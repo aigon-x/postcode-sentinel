@@ -13,6 +13,7 @@ The deterministic local reasoner is used only when explicitly requested
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import urllib.error
@@ -106,6 +107,9 @@ class DuoAgentClient:
             "Content-Type": "application/json",
             "Accept": "application/json",
             "User-Agent": "postcode-sentinel/0.2",
+            # Retries must not create a second Duo workflow for the same review.
+            "Idempotency-Key": hashlib.sha256(
+                json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest(),
         }
         request = urllib.request.Request(
             self.endpoint,
