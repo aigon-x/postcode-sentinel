@@ -1,5 +1,6 @@
 stages:
   - test
+  - quality
   - postcode
 
 # The image must contain git: the analysis job builds a diff between the merge
@@ -18,6 +19,24 @@ unit-tests:
     - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   script:
     - python3 -m pytest tests -q
+
+# Repository quality gates: licence, documentation, secrets, honest claims,
+# accessibility and responsive layout. The same script runs locally, so a green
+# pipeline and a green laptop mean the same thing.
+quality-gates:
+  stage: quality
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  script:
+    - python3 ci/quality_gates.py .
+  artifacts:
+    when: always
+    expire_in: 30 days
+    paths:
+      - quality-gates.json
+    reports:
+      codequality: codequality.json
 
 postcode-sentinel:
   stage: postcode

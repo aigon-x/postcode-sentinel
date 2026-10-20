@@ -241,3 +241,13 @@ check); only the `GET /` markup and the API contract are covered by tests.
   the project is pushed to a GitLab instance. The YAML and its commands were
   validated statically and the diff step was executed locally with `sh`.
 - **No `docker build` and no full repository test suite**, per the build rules.
+
+## Quality gates w CI (2026-10-20)
+```
+$ python3 ci/quality_gates.py .
+PASS license        LICENSE
+PASS documentation  README.md
+...
+8/8 gates passed
+```
+Job `quality-gates` publikuje `quality-gates.json` oraz raport Code Quality (`codequality.json`).

@@ -161,3 +161,14 @@ transport.
   Platform only run after the project is pushed to a GitLab instance.
 - `python3 -m sentinel` must run from the project root (or with it on
   `PYTHONPATH`).
+
+## Quality gates (to jest nasz wyróżnik)
+
+`ci/quality_gates.py` to zestaw bramek uruchamianych **przed** analizą diffu: licencja,
+kompletność dokumentacji, skan sekretów, twierdzenia nie do obrony, dostępność i responsywność.
+Ten sam skrypt działa lokalnie i w pipeline, a wynik trafia do GitLab Code Quality jako
+`codequality.json`. Pipeline ma trzy etapy: `test` → `quality` → `postcode`.
+
+```bash
+python3 ci/quality_gates.py .      # 8/8 gates passed
+```

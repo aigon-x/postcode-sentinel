@@ -196,3 +196,11 @@ makes the determinism test (same diff → identical dicts) meaningful.
   CLI exit 2.
 - Live GitLab without token/project → `GitLabError`, CLI exit 2, no request sent.
 No path returns success without having done the work it reports.
+
+## Etapy pipeline'u
+1. `test` — 60 testów jednostkowych i kontraktowych.
+2. `quality` — osiem bramek repozytorium (licencja, dokumentacja, sekrety, uczciwe twierdzenia,
+   dostępność, responsywność); raport Code Quality dla GitLaba.
+3. `postcode` — analiza diffu i raport ryzyka (dry-run).
+
+Bramki są niezależne od analizatora: mogą zatrzymać merge, zanim Sentinel w ogóle policzy ryzyko.

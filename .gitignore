@@ -4,3 +4,5 @@ __pycache__/
 .venv/
 .env
 CRITIQUE.md
+quality-gates.json
+codequality.json
